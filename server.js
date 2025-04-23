@@ -21,6 +21,11 @@ app.get('/', (req, res) => {
   res.sendFile(__dirname + '/index.html');
 });
 
+// ✅ Add this: Send latest data to browser
+app.get('/data', (req, res) => {
+  res.json(latestData);
+});
+
 // Receive data from ESP32
 app.post('/data', (req, res) => {
   latestData = req.body;
@@ -41,21 +46,3 @@ io.on("connection", (socket) => {
 server.listen(3000, () => {
   console.log("Server running at http://localhost:3000");
 });
-
-const cors = require('cors');
-app.use(cors()); // Allow all origins
-
-
-// Receive data from ESP32
-app.post('/data', (req, res) => {
-  latestData = req.body;
-  console.log("Received from ESP32:", latestData);
-  io.emit("update", latestData);
-  res.sendStatus(200);
-});
-
-// 🔧 Add this GET route
-app.get('/data', (req, res) => {
-  res.json(latestData);
-});
-

@@ -44,3 +44,18 @@ server.listen(3000, () => {
 
 const cors = require('cors');
 app.use(cors()); // Allow all origins
+
+
+// Receive data from ESP32
+app.post('/data', (req, res) => {
+  latestData = req.body;
+  console.log("Received from ESP32:", latestData);
+  io.emit("update", latestData);
+  res.sendStatus(200);
+});
+
+// 🔧 Add this GET route
+app.get('/data', (req, res) => {
+  res.json(latestData);
+});
+

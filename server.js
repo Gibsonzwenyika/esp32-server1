@@ -56,4 +56,42 @@ app.get("/logs", async (req, res) => {
     }
 });
 
+import express from "express";
+import multer from "multer";
+import mongoose from "mongoose";
+import cors from "cors";
+import bodyParser from "body-parser";
+
+const app = express();
+app.use(cors());
+app.use(bodyParser.json());
+
+// Storage for uploaded images
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
+
+// Mongo Schema
+const LogSchema = new mongoose.Schema({
+  image: Buffer,
+  status: String,
+  timestamp: { type: Date, default: Date.now }
+});
+const Log = mongoose.model("Log", LogSchema);
+
+// Upload route
+app.post("/upload", upload.single("file"), async (req, res) => {
+  try {
+    const log = new Log({
+      image: req.file.buffer,
+      status: "face_detected"
+    });
+    await log.save();
+    res.send("✅ Image saved");
+  } catch (err) {
+    res.status(500).send("❌ Upload failed: " + err.message);
+  }
+});
+
+
 app.listen(PORT, () => console.log(`🚀 Server running on http://localhost:${PORT}`));
+

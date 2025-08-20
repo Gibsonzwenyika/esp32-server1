@@ -1,48 +1,59 @@
-const express = require('express');
-const http = require('http');
-const socketIo = require('socket.io');
-const cors = require('cors');
+const express = require("express");
+const mongoose = require("mongoose");
+const cors = require("cors");
+const bodyParser = require("body-parser");
 
 const app = express();
-const server = http.createServer(app);
-const io = socketIo(server, {
-  cors: {
-    origin: "*"
-  }
-});
+const PORT = process.env.PORT || 5000;
 
+// Middleware
 app.use(cors());
-app.use(express.json());
+app.use(bodyParser.json());
 
-let latestData = { temperature: "--", humidity: "--" };
+// MongoDB Connection
+const MONGO_URI = "mongodb+srv://esp32admin:1234@cluster0.1davypg.mongodb.net/smart_iot?retryWrites=true&w=majority&appName=Cluster0"; 
 
-// Serve simple HTML page
-app.get('/', (req, res) => {
-  res.sendFile(__dirname + '/index.html');
+mongoose.connect(MONGO_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+})
+.then(() => console.log("✅ MongoDB connected"))
+.catch((err) => console.error("❌ MongoDB connection error:", err));
+
+// Schema for face logs
+const FaceLogSchema = new mongoose.Schema({
+    imageUrl: String,       // stored image link (or base64 for testing)
+    status: String,         // "known" or "unknown"
+    timestamp: { type: Date, default: Date.now }
 });
 
-// ✅ Add this: Send latest data to browser
-app.get('/data', (req, res) => {
-  res.json(latestData);
+const FaceLog = mongoose.model("FaceLog", FaceLogSchema);
+
+// Routes
+app.get("/", (req, res) => {
+    res.send("ESP32 Face Unlock Server Running ✅");
 });
 
-// Receive data from ESP32
-app.post('/data', (req, res) => {
-  latestData = req.body;
-  console.log("Received from ESP32:", latestData);
-
-  // Broadcast to all clients
-  io.emit("update", latestData);
-
-  res.sendStatus(200);
+// Save new log
+app.post("/log", async (req, res) => {
+    try {
+        const { imageUrl, status } = req.body;
+        const log = new FaceLog({ imageUrl, status });
+        await log.save();
+        res.status(201).json({ message: "Log saved", log });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
 
-// Serve live updates via WebSocket
-io.on("connection", (socket) => {
-  console.log("Client connected");
-  socket.emit("update", latestData);
+// Fetch all logs
+app.get("/logs", async (req, res) => {
+    try {
+        const logs = await FaceLog.find().sort({ timestamp: -1 });
+        res.json(logs);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
 
-server.listen(3000, () => {
-  console.log("Server running at http://localhost:3000");
-});
+app.listen(PORT, () => console.log(`🚀 Server running on http://localhost:${PORT}`));
